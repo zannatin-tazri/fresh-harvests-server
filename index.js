@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 
 const app = express();
@@ -24,13 +24,15 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     await client.connect();
-    console.log("✅ Connected to MongoDB");
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
     const db = client.db('fresh-harvests');
     const userCollection = db.collection('users');
     const categoryCollection = db.collection('categories');
+    const blogsCollection = db.collection('blogs');
+    const cattegoryCollection = db.collection('cattegories');
 
-    // POST: Save a new user
+    // Save user (POST /users)
     app.post('/users', async (req, res) => {
       const user = req.body;
       try {
@@ -41,37 +43,75 @@ async function run() {
       }
     });
 
-    // GET: Flattened categories
+    // related-products?category=fruits
+app.get('/related-products', async (req, res) => {
+  const { category } = req.query;
+  try {
+    const related = await categoryCollection.find({ category, status: 'active' }).limit(4).toArray();
+    res.send({ success: true, data: related });
+  } catch (err) {
+    res.status(500).send({ success: false, message: 'Failed to fetch related products' });
+  }
+});
+
+   
+// getting categories data 
+
     app.get('/categories', async (req, res) => {
-      try {
-        const categories = await categoryCollection.find().toArray();
+  try {
+    const items = await categoryCollection.find({ status: 'active' }).toArray();
+    res.send({ success: true, data: items });
+  } catch (error) {
+    res.status(500).send({ success: false, error: 'Failed to fetch items' });
+  }
+});
 
-        const allItems = categories.flatMap(cat =>
-          Array.isArray(cat.items)
-            ? cat.items.map(item => ({
-                ...item,
-                categoryName: cat.categoryName
-              }))
-            : []
-        );
 
-        res.send({ success: true, data: allItems });
-      } catch (error) {
-        res.status(500).send({ success: false, error: 'Failed to fetch categories' });
-      }
-    });
+app.get('/categories/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    const result = await categoryCollection.findOne(query);
+    res.send({ success: true, data: result });
+  } catch (error) {
+    res.status(500).send({ success: false, error: 'Item not found' });
+  }
+});
+    
+
+// getting blogs data 
+
+app.get('/blogs', async (req, res) => {
+  try {
+    const items = await blogsCollection.find({}).toArray(); // Fetch all blogs
+    res.send({ success: true, data: items });
+  } catch (error) {
+    res.status(500).send({ success: false, error: 'Failed to fetch items' });
+  }
+});
+app.get('/blogs/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    const result = await blogsCollection.findOne(query);
+    res.send({ success: true, data: result });
+  } catch (error) {
+    res.status(500).send({ success: false, error: 'Item not found' });
+  }
+});
 
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error);
+    console.error(' MongoDB connection failed:', error);
   }
 }
 
 run().catch(console.dir);
 
+// Root route
 app.get('/', (req, res) => {
-  res.send('🌱 Fresh Harvest Server is Running!');
+  res.send(' Fresh Harvest Server is Running!');
 });
 
 app.listen(port, () => {
-  console.log(`🚀 Server is listening on port ${port}`);
+  console.log(` Server is listening on port ${port}`);
 });
